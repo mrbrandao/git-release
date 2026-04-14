@@ -43,10 +43,20 @@ Return: `previous_tag`, `gitlab_host`, `repo_path`, `project_name`, `commit_hash
 **Subagent B — Commits and authors:**
 - Get commits between previous tag and target tag, skipping merge commits:
   `git log <previous_tag>..<tag> --no-merges --pretty=format:"%H %s"`
-- For each commit SHA, find the associated MR via the glab API:
-  `glab api projects/:id/repository/commits/<sha>/merge_requests`
-- Extract the MR number (`iid`) and the author username from the API response.
-- If the API call fails or returns no MR, fall back to the git commit author:
+- Run all MR lookups in parallel using a bash loop with `&` and `wait`:
+  ```bash
+  for sha in <sha1> <sha2> ...; do
+    (glab api "projects/:id/repository/commits/$sha/merge_requests" 2>/dev/null \
+      | python3 -c "
+  import json,sys
+  d=json.load(sys.stdin)
+  print('$sha', d[0]['iid'], d[0]['author']['username']) if d else print('$sha NOMR')
+  ") &
+  done
+  wait
+  ```
+- Each line of output is `<sha> <iid> <username>`. If a line contains `NOMR`,
+  fall back to the git commit author:
   `git show -s --format='%an' <sha>` and use the lowercase first name.
 
 Return: a list of `{ message, author_username, mr_number }` for each commit.
