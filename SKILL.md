@@ -8,7 +8,14 @@ license: GPL-3.0-or-later
 compatibility: Requires git and glab CLI.
 metadata:
   author: Igor Brandao <mrbrandao@proton.me>
-  version: "1.0"
+  version: "1.1"
+permissions:
+  allow:
+    - "Bash(git tag --sort=-creatordate:*)"
+    - "Bash(git remote get-url:*)"
+    - "Bash(git log:*)"
+    - "Bash(glab api user:*)"
+    - "Bash(glab api projects/:id/repository/commits:*)"
 ---
 
 # gitlab-release
@@ -36,9 +43,10 @@ Use 2 subagents in parallel via the Agent tool (both `general-purpose` type):
 - Detect remote URL: `git remote get-url upstream 2>/dev/null || git remote get-url origin`
 - Extract GitLab host and repository path from the remote URL.
 - Get project name from the repo path (last segment).
-- Get the short commit hash: `git rev-parse --short <tag>`
+- Get the short commit hash: `git log -1 --format='%h' <tag>`
+- Get the current GitLab username: `glab api user | python3 -c "import json,sys; print(json.load(sys.stdin)['username'])"`
 
-Return: `previous_tag`, `gitlab_host`, `repo_path`, `project_name`, `commit_hash`
+Return: `previous_tag`, `gitlab_host`, `repo_path`, `project_name`, `commit_hash`, `gitlab_user`
 
 **Subagent B — Commits and authors:**
 - Get commits between previous tag and target tag, skipping merge commits:
@@ -57,7 +65,7 @@ Return: `previous_tag`, `gitlab_host`, `repo_path`, `project_name`, `commit_hash
   ```
 - Each line of output is `<sha> <iid> <username>`. If a line contains `NOMR`,
   fall back to the git commit author:
-  `git show -s --format='%an' <sha>` and use the lowercase first name.
+  `git log -1 --format='%an' <sha>` and use the lowercase first name.
 
 Return: a list of `{ message, author_username, mr_number }` for each commit.
 
@@ -70,7 +78,7 @@ them immediately inside a code block.
 ```
 New Release: <project_name> <tag>
 
-  @<git_user> released this today
+  @<gitlab_user> released this today
 
   https://<gitlab_host>/<repo_path>/-/tags/<tag>
   https://<gitlab_host>/<repo_path>/-/commit/<commit_hash>
@@ -87,7 +95,7 @@ New Release: <project_name> <tag>
 ```markdown
 # New Release: <project_name> <tag>
 
-> @<git_user> released this today
+> @<gitlab_user> released this today
 
 - [Tag <tag>](https://<gitlab_host>/<repo_path>/-/tags/<tag>)
 - [Commit <commit_hash>](https://<gitlab_host>/<repo_path>/-/commit/<commit_hash>)
@@ -101,7 +109,7 @@ New Release: <project_name> <tag>
 ```
 
 Notes:
-- Use `git config user.name` for `<git_user>`.
+- Use `glab api user` for `<gitlab_user>` (the authenticated GitLab username).
 - Omit the `in !<mr_number>` portion when no MR was found for a commit.
 
 ### Step 4 - User Review

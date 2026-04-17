@@ -4,6 +4,57 @@ An AI agent skill that generates formatted release notes for GitLab project
 tags, mimicking GitHub's release notes style. Supports Slack and Markdown
 output formats.
 
+## Requirements
+
+- **git** — to read tags, commits, and remote configuration
+- **glab** — GitLab CLI, used to query merge request data and the authenticated
+  user via the API
+
+### Installing glab
+
+**Linux (dnf/rpm):**
+```bash
+sudo dnf install glab
+```
+
+**Linux (apt):**
+```bash
+sudo apt install glab
+```
+
+**macOS:**
+```bash
+brew install glab
+```
+
+**Other platforms:** see the [official install guide](https://gitlab.com/gitlab-org/cli/-/blob/main/docs/installation_instructions.md).
+
+### Creating a GitLab Personal Access Token
+
+`glab` needs a token to authenticate against the GitLab API.
+
+1. Go to your GitLab instance → **User Settings** → **Access Tokens**
+   (e.g. `https://gitlab.com/-/user_settings/personal_access_tokens`)
+2. Click **Add new token**
+3. Give it a name (e.g. `glab-cli`) and set an expiry date
+4. Select the **`api`** scope
+5. Click **Create personal access token** and copy the value
+
+Then authenticate glab:
+```bash
+glab auth login --hostname <your-gitlab-host>
+```
+
+Follow the prompts and paste your token when asked. For gitlab.com:
+```bash
+glab auth login
+```
+
+Verify it works:
+```bash
+glab api user
+```
+
 ## Installation
 
 ### Via LoLa (recommended)
@@ -66,12 +117,6 @@ New Release: my-project v1.2.0
 
   Full Changelog: https://gitlab.com/org/my-project/-/compare/v1.1.0...v1.2.0
 ```
-
-## Requirements
-
-- **git** — to read tags, commits, and remote configuration
-- **glab** — GitLab CLI, used to query merge request data via the API
-  ([install instructions](https://gitlab.com/gitlab-org/cli))
 
 ## License
 
