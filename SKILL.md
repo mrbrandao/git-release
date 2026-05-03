@@ -8,7 +8,7 @@ license: GPL-3.0-or-later
 compatibility: Requires git and glab CLI.
 metadata:
   author: Igor Brandao <mrbrandao@proton.me>
-  version: "1.1"
+  version: "1.1.0"
 permissions:
   allow:
     - "Bash(git tag --sort=-creatordate:*)"
