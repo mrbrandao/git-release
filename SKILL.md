@@ -9,6 +9,7 @@ compatibility: Requires git and glab CLI.
 metadata:
   author: Igor Brandao <mrbrandao@proton.me>
   version: "1.1.0"
+  kind: skill
 permissions:
   allow:
     - "Bash(git tag --sort=-creatordate:*)"
