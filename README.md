@@ -1,123 +1,40 @@
-# gitlab-release
+# git-release
 
-An AI agent skill that generates formatted release notes for GitLab project
-tags, mimicking GitHub's release notes style. Supports Slack and Markdown
-output formats.
+AI agent skills for creating releases on GitHub
+and GitLab. Follows semver and conventional commits.
 
-## Requirements
+## Skills
 
-- **git** — to read tags, commits, and remote configuration
-- **glab** — GitLab CLI, used to query merge request data and the authenticated
-  user via the API
+### github-release
 
-### Installing glab
+Create signed semver tags and GitHub releases with
+auto-generated release notes.
 
-**Linux (dnf/rpm):**
-```bash
-sudo dnf install glab
-```
+- Detects or suggests the next semver tag
+- Generates a signed annotated tag with changelog
+- Pushes the tag and creates a GitHub release
+- Uses GitHub's generate release notes feature
 
-**Linux (apt):**
-```bash
-sudo apt install glab
-```
+**Requirements:** `git`, `gh` (GitHub CLI)
 
-**macOS:**
-```bash
-brew install glab
-```
+### gitlab-release
 
-**Other platforms:** see the [official install guide](https://gitlab.com/gitlab-org/cli/-/blob/main/docs/installation_instructions.md).
+Generate formatted release notes for GitLab tags.
+Outputs in Slack or Markdown format.
 
-### Creating a GitLab Personal Access Token
+- Gathers commits and MR authors between tags
+- Formats release notes mimicking GitHub style
+- Supports Slack and Markdown output
 
-`glab` needs a token to authenticate against the GitLab API.
+**Requirements:** `git`, `glab` (GitLab CLI)
 
-1. Go to your GitLab instance → **User Settings** → **Access Tokens**
-   (e.g. `https://gitlab.com/-/user_settings/personal_access_tokens`)
-2. Click **Add new token**
-3. Give it a name (e.g. `glab-cli`) and set an expiry date
-4. Select the **`api`** scope
-5. Click **Create personal access token** and copy the value
-
-Then authenticate glab:
-```bash
-glab auth login --hostname <your-gitlab-host>
-```
-
-Follow the prompts and paste your token when asked. For gitlab.com:
-```bash
-glab auth login
-```
-
-Verify it works:
-```bash
-glab api user
-```
-
-## Installation
-
-### Via LoLa (recommended)
+## Install
 
 ```bash
-lola mod add https://github.com/mrbrandao/gitlab-release
-lola install gitlab-release
-```
-
-### Via LeGambiArt Marketplace
-
-```bash
-lola market add LeGambiArt https://raw.githubusercontent.com/LeGambiArt/lola-market/refs/heads/main/lola-market.json
-lola install gitlab-release
-```
-
-### Manual Installation (without LoLa)
-
-```bash
-mkdir -p .claude/skills/gitlab-release
-curl -o .claude/skills/gitlab-release/SKILL.md \
-  https://raw.githubusercontent.com/mrbrandao/gitlab-release/main/SKILL.md
-```
-
-## Usage
-
-Inside any GitLab repository, invoke the skill:
-
-```
-/gitlab-release v1.2.0
-```
-
-Specify output format (defaults to `slack`):
-
-```
-/gitlab-release v1.2.0 slack
-/gitlab-release v1.2.0 markdown
-```
-
-If no tag is provided, the skill shows recent tags and prompts you to pick one:
-
-```
-/gitlab-release
-```
-
-## Example Output (Slack)
-
-```
-New Release: my-project v1.2.0
-
-  @username released this today
-
-  https://gitlab.com/org/my-project/-/tags/v1.2.0
-  https://gitlab.com/org/my-project/-/commit/abc1234
-
-  What's Changed
-
-  • feat: add new feature by @alice in !42
-  • fix: resolve edge case by @bob in !43
-
-  Full Changelog: https://gitlab.com/org/my-project/-/compare/v1.1.0...v1.2.0
+lola mod add https://github.com/mrbrandao/git-release.git
+lola install git-release
 ```
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE) for details.
+Apache-2.0
