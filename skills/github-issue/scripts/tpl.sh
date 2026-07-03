@@ -23,10 +23,13 @@ list_local() {
   local dir="$1/.github/ISSUE_TEMPLATE"
   [[ -d "$dir" ]] || return 1
   log "reading local templates from $dir"
+  local found=0
   for f in "$dir"/*.yml; do
     [[ -f "$f" ]] || continue
     print_tpl "$f"
+    found=1
   done
+  return $(( !found ))
 }
 
 # list_remote -- fetch templates via gh api.
@@ -73,9 +76,9 @@ print_tpl() {
   local file="${f##*/}"
   [[ "$JSON_OUT" == "true" ]] \
     && printf \
-      '{"name":%s,"file":"%s","labels":"%s"' \
+      '{"name":"%s","file":"%s","labels":"%s"' \
       "$name" "$file" "$labels" \
-    && printf ',"prefix":%s}\n' "$prefix" \
+    && printf ',"prefix":"%s"}\n' "$prefix" \
     && return
   printf "%s (%s)\n" "$name" "$file"
   [[ -n "$labels" ]] \
