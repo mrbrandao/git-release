@@ -1,0 +1,12 @@
+name: Task
+description: A generic task or work item
+labels:
+  - task
+title: "[TASK] - "
+fields:
+  - id: description
+    label: Task Description
+    required: true
+  - id: criteria
+    label: Acceptance Criteria
+    required: false

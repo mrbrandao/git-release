@@ -1,0 +1,15 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+labels:
+  - enhancement
+title: "[FEATURE] - "
+fields:
+  - id: description
+    label: Feature Description
+    required: true
+  - id: problem
+    label: Problem or Use Case
+    required: true
+  - id: solution
+    label: Proposed Solution
+    required: false
