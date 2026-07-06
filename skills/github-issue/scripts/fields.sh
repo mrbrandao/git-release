@@ -118,8 +118,10 @@ apply_field() {
   set_field "$proj" "$item" "$fid" "$oid"
 }
 main() {
+  case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+  esac
   setup "$@"
-  case "${1:-}" in -h|--help) usage; exit 0 ;; esac
   require_cmd "jq"
   local issue proj_num repo owner proj_id item_id
   issue=$(flag_val "--issue")

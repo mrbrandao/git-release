@@ -89,10 +89,10 @@ print_tpl() {
 }
 
 main() {
-  setup "$@"
   case "${1:-}" in
     -h|--help) usage; exit 0 ;;
   esac
+  setup "$@"
 
   local remote_only="false"
   has_flag "--remote" && remote_only="true"

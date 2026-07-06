@@ -75,10 +75,10 @@ format_text() {
 }
 
 main() {
-  setup "$@"
   case "${1:-}" in
     -h|--help) usage; exit 0 ;;
   esac
+  setup "$@"
 
   local repo
   repo=$(detect_repo)
