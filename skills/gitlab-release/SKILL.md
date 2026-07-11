@@ -1,81 +1,146 @@
 ---
 name: gitlab-release
 description: >-
-  Generate release notes for a GitLab project tag.
-  Use when the user wants to create release notes, changelogs, or version
-  announcements for a GitLab repository tag.
-license: GPL-3.0-or-later
-compatibility: Requires git and glab CLI.
+  Create GitLab releases: detect the next semver tag, build a signed
+  annotated tag, push it, then generate formatted release notes with
+  MR numbers and authors in Slack or Markdown format.
+  Activate on: /gitlab-release, create a release, tag and release,
+  generate release notes. SKIP: if user wants GitHub releases.
+license: Apache-2.0
+compatibility: Requires git and glab CLI authenticated via glab auth login.
 metadata:
   author: Igor Brandao <mrbrandao@proton.me>
-  version: "1.1.0"
+  version: "2.0.0"
   kind: skill
 permissions:
   allow:
-    - "Bash(git tag --sort=-creatordate:*)"
-    - "Bash(git remote get-url:*)"
+    - "Bash(git tag:*)"
+    - "Bash(git push:*)"
     - "Bash(git log:*)"
+    - "Bash(git remote get-url:*)"
     - "Bash(glab api user:*)"
     - "Bash(glab api projects/:id/repository/commits:*)"
 ---
 
 # gitlab-release
 
-Generate formatted release notes for GitLab tags, mimicking GitHub's release
-notes style. Outputs in Slack or Markdown format.
+Create GitLab releases and generate formatted release notes.
 
 ## Instructions
 
-### Step 1 - Parse Arguments
+### Step 1 — Parse Arguments
 
-Parse `$ARGUMENTS` for `<tag> [slack|markdown]`.
+Parse `$ARGUMENTS` for `<tag> [slack|markdown]`. Format defaults to `slack`.
 
-- If a tag is provided, use it as the target tag.
-- If no tag is provided, run `git tag --sort=-creatordate | head -5` to show
-  the 5 most recent tags and ask the user which tag to use.
-- The format defaults to `slack` if not specified.
+- Tag provided → skip to Step 5 (notes only)
+- No tag → continue to Step 2
 
-### Step 2 - Gather Release Data
+### Step 2 — Detect & Suggest Tag
 
-Use 2 subagents in parallel via the Agent tool (both `general-purpose` type):
+```bash
+git tag --sort=-creatordate | head -1          # latest tag
+git log <latest>..HEAD --no-merges --oneline   # commits since
+```
+
+If no commits since latest tag → inform user and stop.
+
+Suggest semver bump from conventional commit prefixes:
+- `BREAKING CHANGE` or `!:` anywhere → **major**
+- Any `feat:` → **minor**
+- Only `fix:`, `docs:`, `chore:`, etc. → **patch**
+
+Respect existing prefix convention (`v` or bare). Present suggestion, ask
+approval. Use user's version if changed.
+
+### Step 3 — Build Tag Annotation
+
+```bash
+git log <previous_tag>..<tag> --no-merges --pretty=format:"%s"
+```
+
+Strip conventional prefix from each subject:
+```
+regex: ^(feat|fix|docs|chore|refactor|test|ci|perf|build|revert)(\(.+\))?!?:\s*
+```
+Capitalise first letter. Format:
+```
+<tag>
+
+- <cleaned bullet>
+- <cleaned bullet>
+```
+Max 30 lines, wrap at 72 chars. Present for approval — user may edit.
+**Keep these bullets in memory for Step 5.**
+
+### Step 4 — Create & Push Tag
+
+On approval:
+```bash
+git tag -s -m "<message>" <tag>
+# GPG fallback:
+git tag -a -m "<message>" <tag>
+```
+
+Detect remote:
+```bash
+git remote get-url upstream 2>/dev/null || git remote get-url origin
+```
+
+Present push command for confirmation, then execute:
+```bash
+git push <remote> <tag>
+```
+
+### Step 5 — Gather Release Data
+
+Launch 2 subagents in parallel:
 
 **Subagent A — Project metadata:**
-- Find the previous tag: `git tag --sort=-creatordate | grep -A1 "^<tag>$" | tail -1`
-- Detect remote URL: `git remote get-url upstream 2>/dev/null || git remote get-url origin`
-- Extract GitLab host and repository path from the remote URL.
-- Get project name from the repo path (last segment).
-- Get the short commit hash: `git log -1 --format='%h' <tag>`
-- Get the current GitLab username: `glab api user | python3 -c "import json,sys; print(json.load(sys.stdin)['username'])"`
+```bash
+git tag --sort=-creatordate | grep -A1 "^<tag>$" | tail -1    # previous_tag
+git remote get-url upstream 2>/dev/null || git remote get-url origin
+git log -1 --format='%h' <tag>                                  # commit_hash
+glab api user | python3 -c "import json,sys; print(json.load(sys.stdin)['username'])"
+```
 
-Return: `previous_tag`, `gitlab_host`, `repo_path`, `project_name`, `commit_hash`, `gitlab_user`
+*Notes-only path only:* also fetch and strip commit subjects:
+```bash
+git log <previous_tag>..<tag> --no-merges --pretty=format:"%s"
+```
+Apply same prefix-stripping regex as Step 3 and capitalise.
 
-**Subagent B — Commits and authors:**
-- Get commits between previous tag and target tag, skipping merge commits:
-  `git log <previous_tag>..<tag> --no-merges --pretty=format:"%H %s"`
-- Run all MR lookups in parallel using a bash loop with `&` and `wait`:
-  ```bash
-  for sha in <sha1> <sha2> ...; do
-    (glab api "projects/:id/repository/commits/$sha/merge_requests" 2>/dev/null \
-      | python3 -c "
-  import json,sys
-  d=json.load(sys.stdin)
-  print('$sha', d[0]['iid'], d[0]['author']['username']) if d else print('$sha NOMR')
-  ") &
-  done
-  wait
-  ```
-- Each line of output is `<sha> <iid> <username>`. If a line contains `NOMR`,
-  fall back to the git commit author:
-  `git log -1 --format='%an' <sha>` and use the lowercase first name.
+Return: `previous_tag`, `gitlab_host`, `repo_path`, `project_name`,
+`commit_hash`, `gitlab_user`, and `display_bullets` (notes-only path only).
 
-Return: a list of `{ message, author_username, mr_number }` for each commit.
+**Subagent B — MR attribution:**
+```bash
+git log <previous_tag>..<tag> --no-merges --pretty=format:"%H"
+```
+For each SHA, in parallel:
+```bash
+for sha in <sha1> <sha2> ...; do
+  (glab api "projects/:id/repository/commits/$sha/merge_requests" 2>/dev/null \
+    | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+print('$sha', d[0]['iid'], d[0]['author']['username']) if d else print('$sha NOMR')
+") &
+done
+wait
+```
+`NOMR` fallback: `git log -1 --format='%an' <sha>` — use lowercase first name.
 
-### Step 3 - Format and Display
+Return: ordered list of `{ iid, author_username }` per commit.
 
-Using the results from both subagents, format the release notes and display
-them immediately inside a code block.
+**Display text:**
+- Full flow → bullets from Step 3 memory, matched to attribution by index
+- Notes only → `display_bullets` from Subagent A, matched by index
 
-**Slack format** (default):
+### Step 6 — Format & Display
+
+Display inside a code block.
+
+**Slack** (default):
 ```
 New Release: <project_name> <tag>
 
@@ -86,13 +151,13 @@ New Release: <project_name> <tag>
 
   What's Changed
 
-  • <commit_message> by @<author> in !<mr_number>
-  • <commit_message> by @<author>
+  • <bullet> by @<author> in !<iid>
+  • <bullet> by @<author>
 
   Full Changelog: https://<gitlab_host>/<repo_path>/-/compare/<previous_tag>...<tag>
 ```
 
-**Markdown format:**
+**Markdown:**
 ```markdown
 # New Release: <project_name> <tag>
 
@@ -103,21 +168,25 @@ New Release: <project_name> <tag>
 
 ## What's Changed
 
-- <commit_message> by @<author> in [!<mr_number>](https://<gitlab_host>/<repo_path>/-/merge_requests/<mr_number>)
-- <commit_message> by @<author>
+- <bullet> by @<author> in [!<iid>](https://<gitlab_host>/<repo_path>/-/merge_requests/<iid>)
+- <bullet> by @<author>
 
 **Full Changelog:** [<previous_tag>...<tag>](https://<gitlab_host>/<repo_path>/-/compare/<previous_tag>...<tag>)
 ```
 
-Notes:
-- Use `glab api user` for `<gitlab_user>` (the authenticated GitLab username).
-- Omit the `in !<mr_number>` portion when no MR was found for a commit.
+Omit `in !<iid>` when no MR found. Omit attribution for unmatched bullets.
 
-### Step 4 - User Review
+### Step 7 — User Review
 
-After displaying the release notes, ask the user:
+Ask:
+> "Does this look good? Let me know if you'd like to change anything."
 
-> "Does this look good? Let me know if you'd like to change the project name,
-> wording, or anything else."
+Apply changes and re-display if requested.
 
-If the user requests changes, apply them and re-display the updated notes.
+## Gotchas
+
+- Never create a tag, push, or release without explicit user approval.
+- Respect the existing tag prefix convention — never mix `v1.0.0` and `1.0.0`.
+- If no commits since last tag, stop — do not create an empty release.
+- Tag messages must not exceed 30 lines.
+- `glab auth login` must be authenticated before running.
